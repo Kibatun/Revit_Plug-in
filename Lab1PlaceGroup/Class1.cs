@@ -9,9 +9,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using Autodesk.Revit.DB.Architecture;
-
-//Подключить через ссылки RevitAPI и RevitAPIUI, в свосйствах указать "Копировать локально" = false
-
+//Подключить через ссылки RevitAPI и RevitAPIUI, в свосйствах указать "Копировать локально" = fals
 namespace Lab1PlaceGroup
 {
     [Transaction(TransactionMode.Manual)]
@@ -20,6 +18,7 @@ namespace Lab1PlaceGroup
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements) 
         {
+
             //Получить объекты приложений и документов
             UIApplication uiapp = commandData.Application;
             Document doc = uiapp.ActiveUIDocument.Document;
@@ -45,21 +44,15 @@ namespace Lab1PlaceGroup
 
                 // Получение центральной точки комнаты
                 XYZ sourceCenter = GetRoomCenter(room);
-                string coords = "X = " + sourceCenter.X.ToString() + "\r\n" + "Y = " + sourceCenter.Y.ToString() + "\r\n" + "Z = " + sourceCenter.Z.ToString();     //Преобразование
-                                                                                                                //значений в строку для показа в диалоговом окне
-                TaskDialog.Show("Source room Center", coords);      //Отображение диалогового окна, первое - заголовок, второе - параметр
+                
+                RoomPickFilter roomPickFilter = new RoomPickFilter();
 
-                //Выбор точки
-                //   XYZ point = sel.PickPoint("Пожалуйста выберите группу");
-
-                // Разместить группу
+                //Объявлен свой список ссылок и присвоен ему результат вызова PickObject
+                IList<Reference> rooms = sel.PickObjects(ObjectType.Element, roomPickFilter, "Select target rooms for duplicate furniture group");
+                    // Расстановка мебели в каждой комнате
                 Transaction trans = new Transaction(doc);
                 trans.Start("Lab");
-                // doc.Create.PlaceGroup(point, group.GroupType);
-
-                // Вычислить позицию новой группы
-                XYZ groupLocation = sourceCenter + new XYZ(20, 0, 0);
-                doc.Create.PlaceGroup(groupLocation, group.GroupType);
+                PlaceFurnitureInRooms(doc, rooms, sourceCenter, group.GroupType, origin);
                 trans.Commit();
 
             }
@@ -69,6 +62,36 @@ namespace Lab1PlaceGroup
             }
 
             return Result.Succeeded;
+        }
+
+        // Скопируйте группу в каждую из предоставленных комнат. Положение в котором должна быть размещена группа, основывается на целевой центральной точки комнаты:
+        // она должна иметь такое же смещение от этой точки, как у оригинала от центра его комнаты.
+        public void PlaceFurnitureInRooms(Document doc, IList<Reference> rooms, XYZ sourceCenter, GroupType gt, XYZ groupOrigin)
+        {
+            XYZ offset = groupOrigin - sourceCenter;        //Разница между началом координат группы и центром комнаты, в которой находится группа. 
+            XYZ offsetXY = new XYZ(offset.X, offset.Y, 0);
+            foreach (Reference r in rooms)      //Поочередно берётся каждый элемент из списка комнат
+            {
+                Room roomTarget = doc.GetElement(r) as Room;    //Приведение r как комната
+                if (roomTarget != null)
+                {
+                    XYZ roomCenter = GetRoomCenter(roomTarget);     //Центр комнаты
+                    Group group = doc.Create.PlaceGroup(roomCenter + offsetXY, gt);
+                }
+            }
+        }
+        // Фильтр для ограничения выборки по комнатам
+        public class RoomPickFilter : ISelectionFilter
+        {
+            public bool AllowElement(Element e)
+            {
+                return
+   (e.Category.Id.IntegerValue.Equals((int)BuiltInCategory.OST_Rooms));
+            }
+            public bool AllowReference(Reference r, XYZ p)
+            {
+                return false;
+            }
         }
         public class GroupPickFilter : ISelectionFilter
         {
@@ -86,7 +109,6 @@ namespace Lab1PlaceGroup
             {
                 return false;
             }
-
         }
         public XYZ GetElementCenter(Element elem)
         {
@@ -113,16 +135,17 @@ namespace Lab1PlaceGroup
             }
             return room;
         }
-        /// Возвращает координаты центральной точки комнаты.
-        /// Значение Z равно нижней части комнаты
+        // Возвращает координаты центральной точки комнаты.
+        // Значение Z равно нижней части комнаты
         public XYZ GetRoomCenter(Room room)
         {
-            // Get the room center point.
+            // Получение центральной точки помещения.
             XYZ boundCenter = GetElementCenter(room);
             LocationPoint locPt = (LocationPoint)room.Location;     //каст room к LocalPoint
             XYZ roomCenter = new XYZ(boundCenter.X, boundCenter.Y, locPt.Point.Z);      //Возвращение модифицированной точки
             return roomCenter;
         }
+
     }
     // Фильтр для ограничения выборки по комнатам
     public class RoomPickFilter : ISelectionFilter
