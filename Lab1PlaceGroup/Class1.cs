@@ -45,8 +45,9 @@ namespace Lab1PlaceGroup
 
                 // Получение центральной точки комнаты
                 XYZ sourceCenter = GetRoomCenter(room);
-                string coords = "X = " + sourceCenter.X.ToString() + "\r\n" + "Y = " + sourceCenter.Y.ToString() + "\r\n" + "Z = " + sourceCenter.Z.ToString();
-                TaskDialog.Show("Source room Center", coords);
+                string coords = "X = " + sourceCenter.X.ToString() + "\r\n" + "Y = " + sourceCenter.Y.ToString() + "\r\n" + "Z = " + sourceCenter.Z.ToString();     //Преобразование
+                                                                                                                //значений в строку для показа в диалоговом окне
+                TaskDialog.Show("Source room Center", coords);      //Отображение диалогового окна, первое - заголовок, второе - параметр
 
                 //Выбор точки
                 //   XYZ point = sel.PickPoint("Пожалуйста выберите группу");
@@ -87,20 +88,20 @@ namespace Lab1PlaceGroup
             }
 
         }
-        public XYZ GetElementCenter(Element elem)       //Ошибка .NET, напрмер, закончилась ОЗУ
+        public XYZ GetElementCenter(Element elem)
         {
-            BoundingBoxXYZ bounding = elem.get_BoundingBox(null);
-            XYZ center = (bounding.Max + bounding.Min) * 0.5;
+            BoundingBoxXYZ bounding = elem.get_BoundingBox(null);       //Доступ к свойству BoundingBox переданного элемента, сохранив его значение в переменной с именем bounding
+            XYZ center = (bounding.Max + bounding.Min) * 0.5;       //Расчёт среднего значения путём сложения макс точек геомктрии и делении на 2
             return center;
         }
         Room GetRoomOfGroup(Document doc, XYZ point)
         {
-            FilteredElementCollector collector = new FilteredElementCollector(doc);
-            collector.OfCategory(BuiltInCategory.OST_Rooms);
+            FilteredElementCollector collector = new FilteredElementCollector(doc);     //Объект коллектор фильтрует элементы в документе
+            collector.OfCategory(BuiltInCategory.OST_Rooms);        //Фильтр категории только по комнатам
             Room room = null;
-            foreach (Element elem in collector)
+            foreach (Element elem in collector)     //Перебор комнат
             {
-                room = elem as Room;
+                room = elem as Room;        //Если элемент не Room, то room = null
                 if (room != null)
                 {
                     // Определите, находится ли эта точка в выбранной комнате
@@ -118,9 +119,22 @@ namespace Lab1PlaceGroup
         {
             // Get the room center point.
             XYZ boundCenter = GetElementCenter(room);
-            LocationPoint locPt = (LocationPoint)room.Location;
-            XYZ roomCenter = new XYZ(boundCenter.X, boundCenter.Y, locPt.Point.Z);
+            LocationPoint locPt = (LocationPoint)room.Location;     //каст room к LocalPoint
+            XYZ roomCenter = new XYZ(boundCenter.X, boundCenter.Y, locPt.Point.Z);      //Возвращение модифицированной точки
             return roomCenter;
+        }
+    }
+    // Фильтр для ограничения выборки по комнатам
+    public class RoomPickFilter : ISelectionFilter
+    {
+        public bool AllowElement(Element e)
+        {
+            return
+(e.Category.Id.IntegerValue.Equals((int)BuiltInCategory.OST_Rooms));
+        }
+        public bool AllowReference(Reference r, XYZ p)
+        {
+            return false;
         }
     }
 
