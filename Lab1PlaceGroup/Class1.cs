@@ -10,6 +10,7 @@ using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using Autodesk.Revit.DB.Architecture;
 namespace Lab1PlaceGroup
+    //Отедльно подключены ссылки на RevitAPI и RevitAPIUI. В параметрах этих ссылок пункт "Копировать локально" = false
 {
     [Transaction(TransactionMode.Manual)]
     [Regeneration(RegenerationOption.Manual)]
@@ -17,9 +18,16 @@ namespace Lab1PlaceGroup
     {
         public bool AllowElement(Element e)
         {
-            return e.Category.Id.IntegerValue.Equals((int)BuiltInCategory.OST_IOSModelGroups);      //Определяет, куда наведён курсор и проверяет его категорию.
+            return e.Category.Id.IntegerValue.Equals((int)BuiltInCategory.OST_IOSModelGroups);      //Сравнивает категорию данного элемента с категорией "группа моделей".
+            /*
+             * elem.Category.Id.IntegerValue - получает целочисленное значение идентификатора категории из элемента elem, переданного в качестве параметра в AllowElement().
+             * BuiltInCategory.OST_IOSModelGroups - ссылается на число, идентифицирующее встроенную категорию "группы моделей", которое мы получаем из коллекции BuiltInCategory.
+             * Поскольку члены перечисления на самом деле являются числами,произведено приведение для преобразования BuildingCategory.OST_IOSModelGroups в целое число, 
+             * чтобы иметь возможность сравнить его со значением ID категории. 
+             * 
+            */
         }
-        public bool AllowReference(Reference r, XYZ p)
+        public bool AllowReference(Reference r, XYZ p)      //Если курсор наведен на ссылку, эта ссылка будет передана в метод AllowReference(), но ссылки в данной работе не нужны
         {
             return false;
         }
@@ -54,12 +62,12 @@ namespace Lab1PlaceGroup
                 trans.Commit();
             }
 
-            //Если пользователь щелкнул правой кнопкой мыши или нажал Esc, обработать исключение
-            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            //Если пользователь щелкнул правой кнопкой мыши или нажал Esc или нажать ПКМ во время выбора, обработать исключение
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)  
             {
                 return Result.Cancelled;
             }
-            catch (Exception ex)
+            catch (Exception ex)        //Обработка любого .NET исключения, например, из-за нехватки оперативки
             {
                 message = ex.Message;
                 return Result.Failed;
