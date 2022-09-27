@@ -10,7 +10,7 @@ using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using Autodesk.Revit.DB.Architecture;
 namespace Lab1PlaceGroup
-    //Отедльно подключены ссылки на RevitAPI и RevitAPIUI. В параметрах этих ссылок пункт "Копировать локально" = false
+    ///Отедльно подключены ссылки на RevitAPI и RevitAPIUI. В параметрах этих ссылок пункт "Копировать локально" = false
 {
     [Transaction(TransactionMode.Manual)]
     [Regeneration(RegenerationOption.Manual)]
@@ -34,6 +34,43 @@ namespace Lab1PlaceGroup
     }
     public class Class1 : IExternalCommand
     {
+        ///Возвращает координаты центральной точки комнаты.
+        /// Z value is equal to the bottom of the room
+        public XYZ GetRoomCenter(Room room)
+        {
+            // Get the room center point.
+            XYZ boundCenter = GetElementCenter(room);
+            LocationPoint locPt = (LocationPoint)room.Location;
+            XYZ roomCenter = new XYZ(boundCenter.X, boundCenter.Y, locPt.Point.Z);
+            return roomCenter;
+        }
+        /// Return the room in which the given point is located
+        Room GetRoomOfGroup(Document doc, XYZ point)
+        {
+            FilteredElementCollector collector = new FilteredElementCollector(doc);
+            collector.OfCategory(BuiltInCategory.OST_Rooms);
+            Room room = null;
+            foreach (Element elem in collector)
+            {
+                room = elem as Room;
+                if (room != null)
+                {
+                    /// Decide if this point is in the picked room                  
+                    if (room.IsPointInRoom(point))
+                    {
+                        break;
+                    }
+                }
+            }
+            return room;
+        }
+        public XYZ GetElementCenter (Element elem)       //Метод вычисления центра выбранной группы
+        {
+            BoundingBoxXYZ bounding = elem.get_BoundingBox(null);
+            XYZ center = (bounding.Max + bounding.Min) / 2;
+            return center;
+        }
+
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         { 
             //Получить объекты приложения и документа
@@ -51,14 +88,26 @@ namespace Lab1PlaceGroup
                                                                                                                 //экземпляр класса ISelectionFilter, стока с сообщением пользователю)
                 Element elem = doc.GetElement(pickedRef);
                 Group group = elem as Group;
+                XYZ origin = GetElementCenter(group);       //Получение центральной точки группы
+                Room room = GetRoomOfGroup(doc, origin);        // Get the room that the picked group is located in
+                // Get the room's center point  
+                XYZ sourceCenter = GetRoomCenter(room);
+                string coords =
+                "X = " + sourceCenter.X.ToString() + "\r\n" +
+                "Y = " + sourceCenter.Y.ToString() + "\r\n" +
+                "Z = " + sourceCenter.Z.ToString();
 
+                TaskDialog.Show("Source room Center", coords);
                 //Выбор точки
-                XYZ point = sel.PickPoint("Пожалуйста выберите точку для размещения группы");
+                //XYZ point = sel.PickPoint("Пожалуйста выберите точку для размещения группы");
 
                 //Размещение группы
                 Transaction trans = new Transaction(doc);
                 trans.Start("Lab");
-                doc.Create.PlaceGroup(point, group.GroupType);
+                //doc.Create.PlaceGroup(point, group.GroupType);
+                // Calculate the new group's position
+                XYZ groupLocation = sourceCenter + new XYZ(20, 0, 0);
+                doc.Create.PlaceGroup(groupLocation, group.GroupType);
                 trans.Commit();
             }
 
